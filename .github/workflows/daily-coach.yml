@@ -1,0 +1,31 @@
+name: Daily Communication Coach
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *"
+jobs:
+  daily-lesson:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -r requirements.txt
+      - name: Generate and send daily lesson
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ALLOWED_CHAT_ID: ${{ secrets.TELEGRAM_ALLOWED_CHAT_ID }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+        run: |
+          python - <<'PY'
+          import asyncio, httpx
+          from app.telegram import daily_lesson
+          from config import settings
+          async def main():
+              lesson = await daily_lesson()
+              async with httpx.AsyncClient(timeout=30) as c:
+                  await c.post(f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage", json={"chat_id": settings.telegram_allowed_chat_id, "text": lesson[:4000]})
+          asyncio.run(main())
+          PY
